@@ -1,29 +1,19 @@
 version: "3"
 
 services:
-  reverse-proxy:
-    image: jwilder/nginx-proxy
-    networks:
-      - reverse-proxy-ntw
-    ports:
-      - 80:80
-    volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro    
-
   chirpstack-network-server:
     image: chirpstack/chirpstack-network-server:3
+    networks:
+      - chirpstack-backend
     volumes:
       - ./config/chirpstack/network-server.toml:/etc/chirpstack-network-server/chirpstack-network-server.toml
 
   chirpstack:
     image: chirpstack/chirpstack-application-server:3
     networks:
-      - reverse-proxy-ntw
+      - cs-tb-bridge-ntw
       - chirpstack-frontend
       - chirpstack-backend
-    environment:
-      - VIRTUAL_HOST=chirpstack.*
-      - VIRTUAL_PORT=8080
     ports:
       - 8080:8080
     volumes:
@@ -45,16 +35,6 @@ services:
     volumes:
       - ./config/chirpstack/geolocation-server.toml:/etc/chirpstack-geolocation-server/chirpstack-geolocation-server.toml
 
-  postgresql:
-    image: postgres:9.6-alpine
-    networks:
-      - chirpstack-backend
-    environment:
-      - POSTGRES_PASSWORD=root
-    volumes:
-      - ./config/postgresql/initdb:/docker-entrypoint-initdb.d
-      - cs-postgres-data:/var/lib/postgresql/data
-
   redis:
     image: redis:5-alpine
     networks:
@@ -72,41 +52,38 @@ services:
   thingsboard:
     image: ivan28823/thingsboard:2.4.3
     networks:
-      - reverse-proxy-ntw
+      - cs-tb-bridge-ntw
       - thingsboard-frontend
       - thingsboard-backend
     environment:
-      - VIRTUAL_HOST=thingsboard.*
-      - VIRTUAL_PORT=9090
-      - PG_HOST=tb-postgres
+      - PG_HOST=postgresql
       - PG_USER=thingsboard
-      - PG_PASS=verysecret
+      - PG_PASS=thingsboard-passwd
     ports:
-      - 9090:9090
+      - 30010:9090
       - 1884:1883
       - 5683:5683/udp
     volumes:
       - tb-data:/data
-    
-  tb-postgres:
+  
+  postgresql:
     image: postgres:12-alpine
     networks:
+      - chirpstack-backend
       - thingsboard-backend
     environment:
-      - POSTGRES_USER=thingsboard
-      - POSTGRES_DB=thingsboard 
-      - POSTGRES_PASSWORD=verysecret
+      - POSTGRES_PASSWORD=root
     volumes:
-      - tb-postgres-data:/var/lib/postgresql/data
-
+      - ./config/postgresql/initdb:/docker-entrypoint-initdb.d
+      - postgres-data:/var/lib/postgresql/data
+   
 volumes:
   tb-data:
-  tb-postgres-data:
-  cs-postgres-data:
+  postgres-data:
   cs-redis-data:
 
 networks:
-  reverse-proxy-ntw:
+  cs-tb-bridge-ntw:
   chirpstack-frontend:
   chirpstack-backend:
   thingsboard-frontend:

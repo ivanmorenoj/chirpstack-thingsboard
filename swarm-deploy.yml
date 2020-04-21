@@ -1,25 +1,6 @@
-version: "3.7"
+version: '3.7'
 
 services:
-  reverse-proxy:
-    image: jwilder/nginx-proxy
-    networks:
-      - reverse-proxy-ntw
-    ports:
-      - 80:80
-      - 443:443
-    volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro    
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-      update_config:
-        parallelism: 2
-        delay: 10s
-      restart_policy:
-        condition: on-failure
-  
   chirpstack-network-server:
     image: chirpstack/chirpstack-network-server:3
     networks:
@@ -28,32 +9,26 @@ services:
       - source: network-server.toml
         target: /etc/chirpstack-network-server/chirpstack-network-server.toml
     deploy:
-      replicas: 2
-      placement:
-        constraints: [node.role == worker]
+      replicas: 1
       update_config:
         parallelism: 2
         delay: 10s
       restart_policy:
         condition: on-failure
   
-  chirpstack-application-server:
+  chirpstack:
     image: chirpstack/chirpstack-application-server:3
     networks:
+      - ntw-bridge
       - chirpstack-frontend
       - chirpstack-backend
-    environment:
-      - VIRTUAL_HOST=chirpstack.*
-      - VIRTUAL_PORT=8080
     ports:
-      - 8080:8080
+      - 30010:8080
     configs:
       - source: application-server.toml
         target: /etc/chirpstack-application-server/chirpstack-application-server.toml
     deploy:
-      replicas: 2
-      placement:
-        constraints: [node.role == worker]
+      replicas: 1
       update_config:
         parallelism: 2
         delay: 10s
@@ -70,9 +45,7 @@ services:
       - source: gateway-bridge.toml
         target: /etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml
     deploy:
-      replicas: 2
-      placement:
-        constraints: [node.role == worker]
+      replicas: 1
       update_config:
         parallelism: 2
         delay: 10s
@@ -88,8 +61,6 @@ services:
         target: /etc/chirpstack-geolocation-server/chirpstack-geolocation-server.toml
     deploy:
       replicas: 1
-      placement:
-        constraints: [node.role == worker]
       update_config:
         parallelism: 2
         delay: 10s
@@ -97,14 +68,15 @@ services:
         condition: on-failure
   
   postgresql:
-    image: postgres:9.6-alpine
+    image: postgres:12-alpine
     networks:
       - chirpstack-backend
+      - thingsboard-backend
     environment:
       - POSTGRES_PASSWORD_FILE=/run/secrets/psql-passw
     volumes:
       - type: volume
-        source: cs-postgres-data
+        source: postgres-data
         target: /var/lib/postgresql/data
       - type: bind
         source: ./config/postgresql/initdb
@@ -113,8 +85,6 @@ services:
       - psql-passw
     deploy:
       replicas: 1
-      placement:
-        constraints: [node.role == manager]
       update_config:
         parallelism: 2
         delay: 10s
@@ -129,8 +99,6 @@ services:
       - cs-redis-data:/data
     deploy:
       replicas: 1
-      placement:
-        constraints: [node.role == worker]
       update_config:
         parallelism: 2
         delay: 10s
@@ -145,8 +113,6 @@ services:
       - 1883:1883
     deploy:
       replicas: 2
-      placement:
-        constraints: [node.role == worker]
       update_config:
         parallelism: 2
         delay: 10s
@@ -156,16 +122,15 @@ services:
   thingsboard:
     image: ivan28823/thingsboard:2.4.3
     environment:
-      - VIRTUAL_HOST=thingsboard.*
-      - VIRTUAL_PORT=9090
-      - PG_HOST=tb-postgres
+      - PG_HOST=postgresql
       - PG_USER=thingsboard
-      - PG_PASS_FILE=/run/secrets/psql-passw
+      - PG_PASS=thingsboard-passwd
     ports:
-      - 9090:9090
+      - 30011:9090
       - 1884:1883
       - 5683:5683/udp
     networks:
+      - ntw-bridge
       - thingsboard-frontend
       - thingsboard-backend
     volumes:
@@ -174,44 +139,22 @@ services:
       - psql-passw
     deploy:
       replicas: 1
-      placement:
-        constraints: [node.role == worker]
       update_config:
         parallelism: 2
         delay: 10s
       restart_policy:
         condition: on-failure
           
-  tb-postgres:
-    image: postgres:12-alpine
-    environment:
-      - POSTGRES_USER=thingsboard
-      - POSTGRES_DB=thingsboard 
-      - POSTGRES_PASSWORD_FILE=/run/secrets/psql-passw
-    networks:
-      - thingsboard-backend
-    volumes:
-      - tb-postgres-data:/var/lib/postgresql/data
-    secrets:
-      - psql-passw
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-      update_config:
-        parallelism: 2
-        delay: 10s
-      restart_policy:
-        condition: on-failure
-  
 volumes:
-  cs-postgres-data:
+  postgres-data:
+    external: true
   cs-redis-data:
-  tb-postgres-data:
+    external: true
   tb-data:
+    external: true
 
 networks:
-  reverse-proxy-ntw:
+  ntw-bridge:
   chirpstack-frontend:
   chirpstack-backend:
   thingsboard-frontend:
