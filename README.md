@@ -6,7 +6,7 @@ Deploy thingsboard and chirpstack in docker.
 
 Clone git repo
 ```sh
-git clone https://github.com/ivan28823/chirpstack-thingsboard.git
+git clone https://github.com/ivanmorenoj/chirpstack-thingsboard.git
 
 cd thingsboard-docker
 ```
