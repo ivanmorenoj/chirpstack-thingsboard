@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-gtw-bridge
+  namespace: prod
+type: Opaque
+stringData:
+  chirpstack-gateway-bridge.toml: |
+    [integration.mqtt.auth.generic]
+    servers=["tcp://mosquitto-service:1883"]
+    username=""
+    password=""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cs-gtw-bridge
+  name: cs-gtw-bridge
+  namespace: prod
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: cs-gtw-bridge 
+  template:
+    metadata:
+      labels:
+        app: cs-gtw-bridge
+    spec:
+      containers:
+      - image: chirpstack/chirpstack-gateway-bridge:3.9.2
+        name: cs-gtw-bridge
+        ports:
+        - containerPort: 1700
+          protocol: UDP
+        volumeMounts:
+        - mountPath: /etc/chirpstack-gateway-bridge
+          name: cs-gtw-config
+        resources:
+          limits:
+            memory: "200Mi"
+            cpu: "50m"
+          requests:
+            memory: "50Mi"
+            cpu: "10m"
+      volumes:
+      - name: cs-gtw-config
+        secret:
+          secretName: secret-gtw-bridge
+---
+kind: Service 
+apiVersion: v1 
+metadata:
+  name: cs-gtw-service
+  namespace: prod
+spec:
+  selector:
+    app: cs-gtw-bridge
+  ports:
+    - port: 1700 
+      protocol: UDP
+      targetPort: 1700
+      nodePort: 31700
+  type: NodePort

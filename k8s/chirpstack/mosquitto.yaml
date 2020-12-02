@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: prod
+  labels:
+    app: mosquitto
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:1.6
+        ports:
+        - name: mosquitto-svc
+          containerPort: 1883
+          protocol: TCP
+        resources:
+          limits:
+            memory: "200Mi"
+            cpu: "50m"
+          requests:
+            memory: "50Mi"
+            cpu: "10m"
+---
+kind: Service 
+apiVersion: v1 
+metadata:
+  name: mosquitto-service 
+  namespace: prod
+spec:
+  selector:
+    app: mosquitto
+  ports:
+    - name: mosquitto-svc
+      port: 1883 
+      targetPort: 1883
+      nodePort: 31884
+  type: NodePort

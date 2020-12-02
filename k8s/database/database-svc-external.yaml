@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: psql-external-ip
+  namespace: prod
+spec:
+  ports:
+  - name: psql
+    port: 5432
+    protocol: TCP
+    targetPort: 5432
+  clusterIP: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: psql-external-ip
+  namespace: prod
+subsets:
+- addresses:
+  - ip: 10.10.10.10  # external database ip, configured only for SSL connections
+  ports:
+  - name: psql-db
+    port: 5432
+    protocol: TCP

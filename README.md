@@ -62,3 +62,6 @@ Open ChirpStack http://{host-ip}:30010
 
 Use an external proxy like nginx to manage web traffic
 
+# Kubernetes
+
+See [k8s](./k8s) directory

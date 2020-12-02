@@ -50,7 +50,7 @@ services:
       - 1883:1883
   
   thingsboard:
-    image: ivan28823/thingsboard:2.4.3
+    image: ivan28823/thingsboard:v3.2
     networks:
       - cs-tb-bridge-ntw
       - thingsboard-frontend

@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: database-secret
+  namespace: prod
+data:
+  PG_PASS: thingsboard-db-password-base64-encoded
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thingsboard-configmap
+  namespace: prod
+data:
+  .firstlaunch: | # comment this config ap if you are intalling Thingsboard for the first time
+    empty-file
+  .tb-currentVersion: |
+    3.2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: thingsboard
+  name: thingsboard
+  namespace: prod
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: thingsboard
+  template:
+    metadata:
+      labels:
+        app: thingsboard
+    spec:
+      containers:
+      - image: ivan28823/thingsboard:v3.2
+        name: thingsboard
+        ports:
+        - name: tb-ui
+          containerPort: 9090
+          protocol: TCP
+        - name: tb-mqtt
+          containerPort: 1883
+          protocol: TCP
+        env:
+        - name: PG_HOST
+          value: "psql-external-ip"
+        - name: PG_USER
+          value: "thingsboard"
+        - name: PG_DATABASE
+          value: "thingsboard"
+        - name: POSTGRES_SSL
+          value: "enabled"
+        - name: PG_SSL_MODE
+          value: "verify-ca"
+        - name: PG_SSL_CERT_FILE
+          value: "/etc/tls/client-cert.pem"
+        - name: PG_SSL_KEY_FILE
+          value: "/etc/tls/client-key.pem"
+        - name: PG_SSL_ROOTCERT_FILE
+          value: "/etc/tls/server-ca.pem"
+        envFrom:
+        - secretRef:
+            name: database-secret
+        volumeMounts:
+        - mountPath: /data
+          name: tb-volume
+        - mountPath: /etc/tls
+          name: psql-ssl
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "800m"
+          requests:
+            memory: "500Mi"
+            cpu: "200m"
+      volumes:
+      - name: tb-volume
+        configMap:
+          name: thingsboard-configmap
+      - name: psql-ssl
+        secret:
+          secretName: psql-ssl-thingsboard
+
+---
+kind: Service 
+apiVersion: v1 
+metadata:
+  name: thingsboard-service 
+  namespace: prod
+spec:
+  selector:
+    app: thingsboard
+  ports:
+    - name: user-interface
+      port: 9090 
+      targetPort: 9090
+    - name: mqtt
+      port: 1883 
+      targetPort: 1883
+      nodePort: 31883
+  type: NodePort

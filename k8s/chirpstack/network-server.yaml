@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-ntw-server
+  namespace: prod
+type: Opaque
+stringData:
+  chirpstack-network-server.toml: |
+    [postgresql]
+    dsn="postgres://chirpstack_ns:very-secret-password@psql-external-ip/chirpstack_ns?sslmode=verify-ca&sslcert=/etc/tls/client-cert.pem&sslkey=/etc/tls/client-key.pem&sslrootcert=/etc/tls/server-ca.pem"
+    max_open_connections=1
+    max_idle_connections=1
+    
+    [redis]
+    url="redis://redis-service:6379"
+    
+    [network_server]
+    net_id="000001"
+    
+    [network_server.band]
+    name="US_902_928"
+    
+      [network_server.network_settings]
+      enabled_uplink_channels=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    
+    [network_server.gateway.backend.mqtt]
+    server="tcp://mosquitto-service:1883"
+    
+    [join_server.default]
+    server="http://cs-app-service:8003"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cs-ntw-server
+  name: cs-ntw-server
+  namespace: prod
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: cs-ntw-server 
+  template:
+    metadata:
+      labels:
+        app: cs-ntw-server
+    spec:
+      containers:
+      - image: chirpstack/chirpstack-network-server:3.11.0
+        name: cs-ntw-server
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "mkdir -p /etc/tls && cp /etc/psql-ssl/* /etc/tls/ && chmod -R 400 /etc/tls"]
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/chirpstack-network-server
+          name: cs-ntw-config
+        - mountPath: /etc/psql-ssl
+          name: psql-ssl
+        resources:
+          limits:
+            memory: "200Mi"
+            cpu: "50m"
+          requests:
+            memory: "50Mi"
+            cpu: "10m"
+      volumes:
+      - name: cs-ntw-config
+        secret:
+          secretName: secret-ntw-server
+      - name: psql-ssl
+        secret:
+          secretName: psql-ssl-ntw-server
+---
+kind: Service 
+apiVersion: v1 
+metadata:
+  name: cs-ntw-service
+  namespace: prod
+spec:
+  selector:
+    app: cs-ntw-server
+  ports:
+    - name: ntw-server
+      port: 8000 
+      targetPort: 8000
+  type: ClusterIP
+
