@@ -120,7 +120,7 @@ services:
         condition: on-failure
 
   thingsboard:
-    image: ivan28823/thingsboard:2.4.3
+    image: ivan28823/thingsboard:v3.2
     environment:
       - PG_HOST=postgresql
       - PG_USER=thingsboard

@@ -1,0 +1,45 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: prod-certificate
+  namespace: prod
+spec:
+  domains:
+    - thingsboard.example.com
+    - chirpstack.example.com
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: ingress-frontend-config
+  namespace: prod
+spec:
+  redirectToHttps:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY_DEFAULT
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: main-ingress
+  namespace: prod
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: google-static-ip
+    networking.gke.io/managed-certificates: prod-certificate
+    kubernetes.io/ingress.allow-http: "false"
+spec:
+  rules:
+  - host: thingsboard.example.com
+    http:
+      paths:
+      - path: /*
+        backend:
+          serviceName: thingsboard-service
+          servicePort: 9090
+  - host: chirpstack.example.com
+    http:
+      paths:
+      - path: /*
+        backend:
+          serviceName: cs-app-service
+          servicePort: 8080

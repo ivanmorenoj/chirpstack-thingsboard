@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: prod
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:5-alpine
+        ports:
+        - name: redis-svc
+          containerPort: 6379
+          protocol: TCP
+        resources:
+          limits:
+            memory: "200Mi"
+            cpu: "50m"
+          requests:
+            memory: "50Mi"
+            cpu: "10m"
+        volumeMounts:
+        - mountPath: /redis-master-data
+          name: data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+kind: Service 
+apiVersion: v1 
+metadata:
+  name: redis-service 
+  namespace: prod
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis-service
+      port: 6379 
+      targetPort: 6379
+  type: ClusterIP
